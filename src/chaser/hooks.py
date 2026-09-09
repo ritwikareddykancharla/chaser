@@ -1,11 +1,24 @@
-"""AuditHook: records every tool call of every node into the ``actions`` table."""
+"""Hooks shared by every node of the Graph.
+
+- ``AuditHook`` records every completed tool call into the ``actions`` table (the activity feed).
+- ``ProgressHook`` records live narration into ``progress`` as the run happens: "thinking" before
+  each model call, what the agent said, which tool it is about to call, and each result. The web
+  UI polls this while the weekly close runs so a two-minute Graph never looks hung.
+"""
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
-from strands.hooks import AfterToolCallEvent, HookProvider, HookRegistry
+from strands.hooks import (
+    AfterToolCallEvent,
+    BeforeModelCallEvent,
+    HookProvider,
+    HookRegistry,
+    MessageAddedEvent,
+)
 
 from .context import current_cycle_id, get_store
 
@@ -90,3 +103,55 @@ class AuditHook(HookProvider):
             )
         except Exception:  # never let auditing break the agent loop
             logger.exception("audit hook failed for %s", tool_name)
+
+
+def _short_input(tool_input: dict[str, Any], limit: int = 160) -> str:
+    text = json.dumps(tool_input, default=str, ensure_ascii=False)
+    return text if len(text) <= limit else text[: limit - 3] + "..."
+
+
+class ProgressHook(HookProvider):
+    """Live narration per node; each line carries the agent's name so the UI can show who is working."""
+
+    def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
+        registry.add_callback(BeforeModelCallEvent, self._before_model)
+        registry.add_callback(MessageAddedEvent, self._message_added)
+        registry.add_callback(AfterToolCallEvent, self._after_tool)
+
+    @staticmethod
+    def _write(agent: Any, kind: str, text: str) -> None:
+        text = " ".join(str(text).split())
+        if not text:
+            return
+        try:
+            get_store().add_progress(current_cycle_id(), getattr(agent, "name", None) or "agent", kind, text)
+        except Exception:  # never let narration break the agent loop
+            logger.exception("progress hook failed")
+
+    def _before_model(self, event: BeforeModelCallEvent) -> None:
+        self._write(event.agent, "thinking", "Thinking...")
+
+    def _message_added(self, event: MessageAddedEvent) -> None:
+        message = event.message or {}
+        if message.get("role") != "assistant":
+            return
+        for block in message.get("content") or []:
+            if "text" in block:
+                self._write(event.agent, "said", block["text"])
+            elif "toolUse" in block:
+                tool_use = block["toolUse"] or {}
+                name = str(tool_use.get("name") or "tool")
+                if name[:1].isupper():
+                    self._write(event.agent, "calling", "Writing the report")
+                    continue
+                self._write(event.agent, "calling", f"{name} {_short_input(dict(tool_use.get('input') or {}))}")
+
+    def _after_tool(self, event: AfterToolCallEvent) -> None:
+        name = str((event.tool_use or {}).get("name") or "tool")
+        if name[:1].isupper():
+            return
+        if event.cancel_message:
+            self._write(event.agent, "done", f"{name}: proposed for your approval")
+            return
+        status = str((event.result or {}).get("status", "done"))
+        self._write(event.agent, "done", f"{name}: {status}")

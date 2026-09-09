@@ -1,11 +1,15 @@
-/* Chaser decision inbox: vanilla JS, polls /api/state every 3 seconds. */
+/* Chaser decision inbox: vanilla JS, polls /api/state every 3 s (every 2 s while the close runs). */
 (function () {
   "use strict";
 
   const $ = (sel) => document.querySelector(sel);
   const POLL_MS = 3000;
+  const POLL_FAST_MS = 2000;
   let state = null;
   let wasRunning = false;
+  let runningSince = null;
+  let pollTimer = null;
+  let refreshing = false;
   const drafts = {}; // decision id -> edited fields kept across polls
 
   const money = (n) => "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -226,14 +230,52 @@
     if (state.last_error) banner(`Last sweep error: ${state.last_error}`, true);
     if (wasRunning && !running) { banner("Weekly close finished."); setTimeout(() => banner(""), 3500); }
     wasRunning = running;
+    runningSince = running ? Date.now() - (state.running_for_seconds || 0) * 1000 : null;
+  }
+
+  // ------------------------------------------------------------------ live strip
+  const AGENT_LABEL = { reconciler: "Reconciler", collector: "Collector", bookkeeper: "Bookkeeper", reporter: "Reporter" };
+
+  function renderLive() {
+    const el = $("#live");
+    const running = !!state.sweep_running;
+    el.classList.toggle("hidden", !running);
+    if (!running) return;
+    const lines = (state.progress || []).slice(-5);
+    const last = lines[lines.length - 1];
+    $("#live-title").textContent = last
+      ? `Weekly close running: ${AGENT_LABEL[last.agent] || last.agent} is working`
+      : "Weekly close running: starting the four-agent graph";
+    $("#live-lines").innerHTML = lines
+      .filter((p, i) => p.kind !== "thinking" || i === lines.length - 1)
+      .map((p) => {
+        const text = p.text.length > 180 ? p.text.slice(0, 177) + "..." : p.text;
+        return `<li class="${esc(p.kind)}"><span class="who">${esc(AGENT_LABEL[p.agent] || p.agent)}</span>${esc(text)}</li>`;
+      })
+      .join("");
+    tickElapsed();
+  }
+
+  function tickElapsed() {
+    const el = $("#live-elapsed");
+    if (!el) return;
+    if (runningSince == null) { el.textContent = ""; return; }
+    const s = Math.max(0, Math.round((Date.now() - runningSince) / 1000));
+    el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
 
   async function refresh() {
+    if (refreshing) return; // a slow /api/state (the runtime is busy) must not stack up requests
+    refreshing = true;
     try {
       state = await api("/api/state");
-      renderHeader(); renderApprovals(); renderAging(); renderReport(); renderBooks(); renderActivity(); renderResolved();
+      renderHeader(); renderLive(); renderApprovals(); renderAging(); renderReport(); renderBooks(); renderActivity(); renderResolved();
     } catch (e) {
       banner(`Cannot reach the API: ${e.message}`, true);
+    } finally {
+      refreshing = false;
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(refresh, state && state.sweep_running ? POLL_FAST_MS : POLL_MS);
     }
   }
 
@@ -259,5 +301,5 @@
   });
 
   refresh();
-  setInterval(refresh, POLL_MS);
+  setInterval(tickElapsed, 1000);
 })();

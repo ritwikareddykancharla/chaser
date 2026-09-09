@@ -384,6 +384,7 @@ def ui_state(store: Store | None = None) -> dict[str, Any]:
         "uncategorized_expenses": store.list_uncategorized_expenses(),
         "missing_receipts": missing_receipts(7),
         "activity": store.list_actions(limit=120),
+        "progress": store.list_progress(limit=40),
         "outbox": store.list_outbox()[:20],
         "counts": store.counts(),
     }

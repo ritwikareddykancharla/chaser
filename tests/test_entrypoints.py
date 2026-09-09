@@ -84,6 +84,10 @@ def test_api_sweep_then_decide(client: TestClient, store: Store) -> None:
     state = client.get("/api/state").json()
     assert state["report"]["execution_order"][0] == "reconciler"
     assert state["last_sweep_status"] == "completed"
+    # Live narration was written per node while the graph ran, tagged with the agent's name.
+    agents = {p["agent"] for p in state["progress"]}
+    assert "reconciler" in agents
+    assert {"thinking", "said"} <= {p["kind"] for p in state["progress"]}
 
     r = flag_deposit_for_review("TX-2004", "unknown")
     out = client.post(f"/api/decisions/{r['decision_id']}", json={"response": "yes", "edits": {}}).json()

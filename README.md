@@ -2,6 +2,8 @@
 
 A weekly-close agent for freelancers: reconciles payments, chases overdue invoices, and asks you only before anything reaches a client.
 
+**Live demo:** https://j5mawhesvc.us-east-1.awsapprunner.com (the web UI on AWS App Runner, calling the four-agent Graph on Amazon Bedrock AgentCore Runtime). Press "Run weekly close", wait about two minutes, and approve, edit or skip the proposals. It is a shared demo instance: everyone sees the same books, and its state resets to the demo dataset after 15 idle minutes.
+
 ## The problem
 
 Freelancers and one-person businesses lose hours every week to back-office work: checking which invoices are still unpaid, matching bank deposits to invoices when the amounts differ by a processor fee or a partial payment, writing "just following up" emails with the right level of firmness, and hunting receipts for expenses before tax time.
@@ -91,6 +93,8 @@ make serve                     # uvicorn app.server:app --reload --port 8000
 
 Environment variables (all optional, see `.env.example`): `BEDROCK_MODEL_ID` (default `global.anthropic.claude-sonnet-4-6`), `AWS_REGION`, `DEMO_TODAY` (default `2026-09-12`), `CHASER_DB_PATH`, `SESSION_BUCKET`, `AGENT_BACKEND` (`local` | `agentcore`), `AGENT_RUNTIME_ARN`, `SWEEP_INTERVAL_SECONDS` (default 900, `0` disables the scheduler), `SWEEP_ON_START`. `MODEL_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` uses the Anthropic API directly instead of Bedrock.
 
+While the weekly close runs (about two minutes for the four-node graph), the inbox shows a live strip: a timer, which node is working, and that node's own narration as it happens (what it said, which tool it is calling, each result), written by a `ProgressHook` on Strands' `MessageAddedEvent`. With `AGENT_BACKEND=agentcore` the web app also pings the runtime every `KEEPALIVE_SECONDS` (default 600, `0` disables) so the shared session and its state survive AgentCore's 15-minute idle timeout and visitors never pay a cold start.
+
 Tests and lint run offline with a scripted model, no AWS needed:
 
 ```bash
@@ -120,6 +124,16 @@ Point the web UI at the deployed runtime:
 ```bash
 AGENT_BACKEND=agentcore AGENT_RUNTIME_ARN=arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/ChaserAgent-xxxx make serve
 ```
+
+### Host the web UI (the live demo URL)
+
+```bash
+make deploy-web    # scripts/deploy_web.sh
+```
+
+`infra/web.yaml` is one CloudFormation stack: an ECR repository, a CodeBuild project that clones this repo from GitHub and builds the `Dockerfile` (so no local Docker is needed), and an AWS App Runner service that runs `uvicorn app.server:app` with `AGENT_BACKEND=agentcore`. The App Runner instance role is allowed exactly one action, `bedrock-agentcore:InvokeAgentRuntime` on this runtime; no AWS keys are stored anywhere. The service uses a fixed `AGENTCORE_SESSION_ID`, so every visitor shares one runtime session, and `SWEEP_INTERVAL_SECONDS=0` so only visitors start sweeps. Re-run `make deploy-web` after pushing to rebuild; App Runner auto-deploys the new image.
+
+Live: https://j5mawhesvc.us-east-1.awsapprunner.com (stack `chaser-web`).
 
 ## Project structure
 

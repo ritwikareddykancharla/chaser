@@ -76,6 +76,10 @@ CREATE TABLE IF NOT EXISTS actions (
     tool_input TEXT NOT NULL, summary TEXT, status TEXT NOT NULL, kind TEXT NOT NULL,
     created_at TEXT NOT NULL, cycle_id TEXT, decision_id TEXT
 );
+CREATE TABLE IF NOT EXISTS progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, cycle_id TEXT, agent TEXT NOT NULL, kind TEXT NOT NULL,
+    text TEXT NOT NULL, created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT, cycle_id TEXT NOT NULL, created_at TEXT NOT NULL,
     report TEXT NOT NULL
@@ -616,6 +620,24 @@ class Store:
         for r in rows:
             r["tool_input"] = _loads(r["tool_input"], {})
         return rows
+
+    # ------------------------------------------------------------------ progress (live narration)
+    def add_progress(self, cycle_id: str | None, agent: str, kind: str, text: str) -> None:
+        """What an agent said or is about to call, written as it happens so the UI can show it live."""
+        self._exec(
+            "INSERT INTO progress (cycle_id, agent, kind, text, created_at) VALUES (?,?,?,?,?)",
+            (cycle_id, agent, kind, text[:600], utcnow()),
+        )
+
+    def list_progress(self, cycle_id: str | None = None, limit: int = 40) -> list[dict[str, Any]]:
+        """Most recent narration lines, oldest first."""
+        sql, params = "SELECT * FROM progress", []
+        if cycle_id:
+            sql += " WHERE cycle_id = ?"
+            params.append(cycle_id)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(limit)
+        return list(reversed(self._all(sql, tuple(params))))
 
     # ------------------------------------------------------------------ reports / cycles / meta
     def save_report(self, cycle_id: str, report: dict[str, Any]) -> None:

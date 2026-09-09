@@ -30,7 +30,12 @@ logger = logging.getLogger("chaser.web")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 _sweep_lock = threading.Lock()  # web-level guard; service.SWEEP_LOCK guards the graph itself
-_state: dict[str, Any] = {"sweep_running": False, "last_result": None, "last_error": None}
+_state: dict[str, Any] = {
+    "sweep_running": False,
+    "started_at": None,
+    "last_result": None,
+    "last_error": None,
+}
 _backend: Backend | None = None
 
 
@@ -45,6 +50,7 @@ def _run_sweep_bg() -> None:
     if not _sweep_lock.acquire(blocking=False):
         return
     _state["sweep_running"] = True
+    _state["started_at"] = time.time()
     try:
         result = backend().sweep()
         _state["last_result"] = {"ok": result.get("ok"), "cycle_id": result.get("cycle_id")}
@@ -54,7 +60,27 @@ def _run_sweep_bg() -> None:
         _state["last_error"] = str(exc)
     finally:
         _state["sweep_running"] = False
+        _state["started_at"] = None
         _sweep_lock.release()
+
+
+def _keepalive() -> None:
+    """Ping the AgentCore session so its microVM (and the state in it) stays warm.
+
+    The runtime ends an idle session after 15 minutes; the next call then pays a cold start and
+    starts from an empty store. A cheap ``status`` call every few minutes avoids both while the
+    web app is up. Set KEEPALIVE_SECONDS=0 to disable.
+    """
+    default = "600" if os.getenv("AGENT_BACKEND", "local").lower() == "agentcore" else "0"
+    interval = int(os.getenv("KEEPALIVE_SECONDS", default) or 0)
+    if interval <= 0:
+        return
+    while True:
+        time.sleep(interval)
+        try:
+            backend().status()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("keepalive failed: %s", exc)
 
 
 def _scheduler() -> None:
@@ -72,6 +98,7 @@ async def lifespan(_app: FastAPI):
         logger.info("empty store; seeding demo data")
         service.seed()
     threading.Thread(target=_scheduler, name="chaser-scheduler", daemon=True).start()
+    threading.Thread(target=_keepalive, name="chaser-keepalive", daemon=True).start()
     if os.getenv("SWEEP_ON_START", "0") == "1":
         threading.Thread(target=_run_sweep_bg, name="chaser-sweep", daemon=True).start()
     yield
@@ -108,6 +135,9 @@ def state() -> dict[str, Any]:
         logger.exception("state failed")
         data = {"ok": False, "error": str(exc), "sweep_running": False}
     data["sweep_running"] = bool(data.get("sweep_running")) or _state["sweep_running"]
+    data["running_for_seconds"] = (
+        int(time.time() - _state["started_at"]) if _state["sweep_running"] and _state["started_at"] else None
+    )
     data["last_error"] = _state["last_error"] or data.get("error")
     return data
 

@@ -27,6 +27,10 @@
           <h2>Needs your decision <span id="pending-count" class="count">0</span></h2>
           <span class="muted small">Only client-facing or ambiguous actions land here.</span>
         </div>
+        <div id="live" class="live hidden" aria-live="polite">
+          <div class="live-head"><span class="spinner"></span><span id="live-title">Weekly close running</span><span id="live-elapsed" class="muted small"></span></div>
+          <ol id="live-lines" class="live-lines"></ol>
+        </div>
         <div id="approvals"></div>
       </div>
 

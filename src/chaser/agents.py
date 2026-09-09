@@ -24,7 +24,7 @@ from strands.session.session_manager import SessionManager
 
 from . import config, prompts, tools
 from .approval import ApprovalGate
-from .hooks import AuditHook
+from .hooks import AuditHook, ProgressHook
 from .model import make_model
 from .store import Store
 
@@ -84,7 +84,7 @@ def make_node_agent(
         system_prompt=prompts.render(NODE_PROMPTS[node], config.today().isoformat()),
         tools=NODE_TOOLS[node],
         interventions=[gate] if gate else None,
-        hooks=hooks if hooks is not None else [AuditHook()],
+        hooks=hooks if hooks is not None else [AuditHook(), ProgressHook()],
         conversation_manager=SlidingWindowConversationManager(window_size=40),
         callback_handler=None,
         record_direct_tool_call=record_direct_tool_call,
