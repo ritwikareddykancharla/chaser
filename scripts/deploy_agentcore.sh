@@ -12,9 +12,9 @@
 #   ./scripts/deploy_agentcore.sh --validate # validate only
 set -euo pipefail
 
-cd "$(dirname "$0")/../agentcore"
+cd "$(dirname "$0")/.."  # the CLI must run from the project root
 
-if grep -q "<ACCOUNT_ID>" aws-targets.json; then
+if grep -q "<ACCOUNT_ID>" agentcore/aws-targets.json; then
   echo "error: fill in your account id in agentcore/aws-targets.json first" >&2
   exit 1
 fi

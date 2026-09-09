@@ -11,6 +11,7 @@ Payload contract (JSON):
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from pathlib import Path
@@ -36,10 +37,30 @@ def _ensure_seeded() -> None:
         service.seed()
 
 
+def _normalize(payload: dict | None) -> dict:
+    """Accept the `agentcore invoke` shape too: it wraps whatever you pass as {"prompt": "<text>"}.
+
+    A prompt that is a JSON object becomes the payload; any other bare prompt is an "ask".
+    """
+    payload = dict(payload or {})
+    if "action" in payload or "prompt" not in payload:
+        return payload
+    prompt = payload["prompt"]
+    if isinstance(prompt, str) and prompt.lstrip().startswith("{"):
+        try:
+            inner = json.loads(prompt)
+        except ValueError:
+            inner = None
+        if isinstance(inner, dict):
+            return {**payload, **inner}
+    return {**payload, "action": "ask"}
+
+
 def dispatch(payload: dict[str, Any]) -> dict[str, Any]:
     """Route a payload to the service layer. Never raises."""
     try:
-        action = (payload or {}).get("action")
+        payload = _normalize(payload)
+        action = payload.get("action")
         _ensure_seeded()
         if action == "sweep":
             result = service.run_sweep()
