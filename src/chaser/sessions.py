@@ -24,6 +24,6 @@ def make_session_manager(session_id: str) -> SessionManager:
             session_id=session_id,
             bucket=bucket,
             prefix=os.getenv("SESSION_PREFIX", "chaser/sessions"),
-            region_name=os.getenv("AWS_REGION", "us-west-2"),
+            region_name=os.getenv("AWS_REGION", "us-east-1"),
         )
     return FileSessionManager(session_id=session_id, storage_dir=SESSIONS_DIR)

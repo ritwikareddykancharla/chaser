@@ -40,7 +40,7 @@ class AgentCoreBackend:
         import boto3
 
         self.runtime_arn = runtime_arn or os.environ["AGENT_RUNTIME_ARN"]
-        self.client = boto3.client("bedrock-agentcore", region_name=region or os.getenv("AWS_REGION", "us-west-2"))
+        self.client = boto3.client("bedrock-agentcore", region_name=region or os.getenv("AWS_REGION", "us-east-1"))
         # AgentCore requires a stable session id of at least 33 characters.
         self.session_id = os.getenv("AGENTCORE_SESSION_ID") or f"chaser-web-{uuid.uuid4().hex}-{uuid.uuid4().hex[:8]}"
 

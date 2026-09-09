@@ -3,7 +3,7 @@
 #
 # Prerequisites:
 #   npm i -g @aws/agentcore
-#   AWS credentials for the target account (aws login / aws configure / SSO), region us-west-2
+#   AWS credentials for the target account (aws login / aws configure / SSO), region us-east-1
 #   Anthropic Claude enabled in the Bedrock console for that region
 #   agentcore/aws-targets.json: replace <ACCOUNT_ID> with your 12-digit account id
 #
