@@ -14,7 +14,9 @@ load_dotenv()
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(os.getenv("CHASER_DATA_DIR", REPO_ROOT / "data"))
 DEFAULT_DB_PATH = os.getenv("CHASER_DB_PATH", str(REPO_ROOT / ".data" / "chaser.db"))
-SESSIONS_DIR = os.getenv("CHASER_SESSIONS_DIR", str(REPO_ROOT / ".data" / "sessions"))
+# Sessions live next to the database by default, so pointing CHASER_DB_PATH at a writable
+# location (AgentCore's code directory is read-only; /tmp is not) also moves the sessions.
+SESSIONS_DIR = os.getenv("CHASER_SESSIONS_DIR", str(Path(DEFAULT_DB_PATH).parent / "sessions"))
 DEFAULT_TODAY = "2026-09-12"
 
 

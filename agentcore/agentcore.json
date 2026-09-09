@@ -28,6 +28,10 @@
         {
           "name": "CHASER_DB_PATH",
           "value": "/tmp/chaser.db"
+        },
+        {
+          "name": "CHASER_SESSIONS_DIR",
+          "value": "/tmp/sessions"
         }
       ],
       "instrumentation": {

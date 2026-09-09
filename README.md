@@ -105,12 +105,15 @@ Web API: `GET /api/state`, `POST /api/sweep`, `POST /api/decisions/{id}` `{"resp
 ```bash
 npm i -g @aws/agentcore
 # edit agentcore/aws-targets.json: replace <ACCOUNT_ID> with your account id (region us-east-1)
-./scripts/deploy_agentcore.sh          # cd agentcore && agentcore validate && agentcore deploy -y
-agentcore invoke ChaserAgent '{"action": "status"}'
-agentcore invoke ChaserAgent '{"action": "sweep"}'
+./scripts/deploy_agentcore.sh          # agentcore validate && agentcore deploy -y, from the repo root
+agentcore invoke '{"action": "status"}'
+agentcore invoke '{"action": "ask", "question": "Who still owes me money?"}'
+agentcore invoke '{"action": "sweep"}'
 ```
 
-`agentcore/agentcore.json` defines a CodeZip runtime `ChaserAgent` (Python 3.12, `main.py`, `codeLocation: "../"`). If your CLI version rejects `codeLocation: "../"`, move `agentcore.json` to the repo root with `codeLocation: "."`. `Dockerfile` is the ARM64 container alternative. The runtime filesystem is ephemeral, so the entrypoint seeds the demo data on first use; point `CHASER_DB_PATH` (or a store implementation) at durable storage for real use.
+`agentcore/agentcore.json` defines a CodeZip runtime `ChaserAgent` (Python 3.12, `main.py`, CDK-managed; the generated CDK app lives in `agentcore/cdk`). The CLI wraps whatever you pass to `invoke` as `{"prompt": "..."}`; `main.py` unwraps a JSON object from that field, and treats any other text as an `ask`. `Dockerfile` is the ARM64 container alternative. The runtime filesystem is read-only except `/tmp`, so `CHASER_DB_PATH` and `CHASER_SESSIONS_DIR` point there and the entrypoint seeds the demo data on first use; point them (or a store implementation) at durable storage for real use.
+
+Deployed for the hackathon as `arn:aws:bedrock-agentcore:us-east-1:796330847946:runtime/Chaser_ChaserAgent-20whYPEX0A` (stack `AgentCore-Chaser-default`).
 
 Point the web UI at the deployed runtime:
 
