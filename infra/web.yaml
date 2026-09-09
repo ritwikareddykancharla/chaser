@@ -235,3 +235,6 @@ Outputs:
   ServiceUrl:
     Condition: CreateServiceCond
     Value: !Sub "https://${Service.ServiceUrl}"
+  ServiceArn:
+    Condition: CreateServiceCond
+    Value: !GetAtt Service.ServiceArn

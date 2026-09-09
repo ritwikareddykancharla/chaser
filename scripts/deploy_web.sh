@@ -85,8 +85,8 @@ with_heartbeat "CloudFormation" deploy true
 
 URL=$(aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK" \
   --query "Stacks[0].Outputs[?OutputKey=='ServiceUrl'].OutputValue" --output text)
-SERVICE_ARN=$(aws apprunner list-services --region "$REGION" \
-  --query "ServiceSummaryList[?ServiceName=='${STACK}'].ServiceArn | [0]" --output text)
+SERVICE_ARN=$(aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK" \
+  --query "Stacks[0].Outputs[?OutputKey=='ServiceArn'].OutputValue" --output text)
 
 say "4/4  Waiting for App Runner to roll the new image out"
 while :; do
