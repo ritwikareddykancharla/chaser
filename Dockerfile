@@ -1,6 +1,10 @@
-# Container-build alternative to the AgentCore CodeZip deploy.
-# Build for ARM64 (AgentCore Runtime):  docker buildx build --platform linux/arm64 -t chaser .
-FROM --platform=linux/arm64 python:3.12-slim
+# One image, two roles:
+#   - AgentCore Runtime container build (ARM64):  docker buildx build --platform linux/arm64 -t chaser .
+#     Default CMD serves the AgentCore HTTP contract from main.py on 8080.
+#   - Web UI on AWS App Runner (x86_64, built by infra/web.yaml via CodeBuild); the service overrides
+#     the start command with: uvicorn app.server:app --host 0.0.0.0 --port 8080
+# The base image comes from ECR Public to avoid Docker Hub pull limits in CI.
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -16,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY main.py ./
 COPY src ./src
+COPY app ./app
 COPY data ./data
 RUN pip install --no-cache-dir --no-deps -e .
 

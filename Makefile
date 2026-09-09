@@ -25,5 +25,8 @@ lint:
 deploy:
 	./scripts/deploy_agentcore.sh
 
+deploy-web:
+	./scripts/deploy_web.sh
+
 demo:
 	./scripts/demo.sh

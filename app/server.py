@@ -101,9 +101,14 @@ def health() -> dict[str, Any]:
 
 @app.get("/api/state")
 def state() -> dict[str, Any]:
-    data = service.ui_state()
-    data["sweep_running"] = data["sweep_running"] or _state["sweep_running"]
-    data["last_error"] = _state["last_error"]
+    # Ask the backend, not the local store: with AGENT_BACKEND=agentcore the state lives in the runtime.
+    try:
+        data = backend().state()
+    except Exception as exc:  # keep the UI polling
+        logger.exception("state failed")
+        data = {"ok": False, "error": str(exc), "sweep_running": False}
+    data["sweep_running"] = bool(data.get("sweep_running")) or _state["sweep_running"]
+    data["last_error"] = _state["last_error"] or data.get("error")
     return data
 
 

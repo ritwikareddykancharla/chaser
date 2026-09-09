@@ -9,12 +9,18 @@ from typing import Any, Protocol
 
 from . import service
 
+# A sweep is one synchronous InvokeAgentRuntime call that can run for minutes. boto3's defaults
+# (60 s read timeout, automatic retries) would time out and then re-run the sweep, so the client
+# waits up to 15 minutes and never retries.
+INVOKE_READ_TIMEOUT_SECONDS = 900
+
 
 class Backend(Protocol):
     def sweep(self) -> dict[str, Any]: ...
     def decide(self, decision_id: str, response: Any, edits: dict[str, Any] | None) -> dict[str, Any]: ...
     def ask(self, prompt: str) -> dict[str, Any]: ...
     def status(self) -> dict[str, Any]: ...
+    def state(self) -> dict[str, Any]: ...
 
 
 class LocalBackend:
@@ -32,16 +38,29 @@ class LocalBackend:
     def status(self) -> dict[str, Any]:
         return {"ok": True, **service.status()}
 
+    def state(self) -> dict[str, Any]:
+        return {"ok": True, **service.ui_state()}
+
 
 class AgentCoreBackend:
     """Invokes the deployed AgentCore Runtime (``main.py``) with the shared payload contract."""
 
     def __init__(self, runtime_arn: str | None = None, region: str | None = None) -> None:
         import boto3
+        from botocore.config import Config
 
         self.runtime_arn = runtime_arn or os.environ["AGENT_RUNTIME_ARN"]
-        self.client = boto3.client("bedrock-agentcore", region_name=region or os.getenv("AWS_REGION", "us-east-1"))
-        # AgentCore requires a stable session id of at least 33 characters.
+        self.client = boto3.client(
+            "bedrock-agentcore",
+            region_name=region or os.getenv("AWS_REGION", "us-east-1"),
+            config=Config(
+                read_timeout=INVOKE_READ_TIMEOUT_SECONDS,
+                connect_timeout=10,
+                retries={"total_max_attempts": 1},
+            ),
+        )
+        # AgentCore requires a stable session id of at least 33 characters. Set AGENTCORE_SESSION_ID
+        # for a hosted UI so every visitor shares one runtime session (and its state).
         self.session_id = os.getenv("AGENTCORE_SESSION_ID") or f"chaser-web-{uuid.uuid4().hex}-{uuid.uuid4().hex[:8]}"
 
     def _invoke(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -66,6 +85,9 @@ class AgentCoreBackend:
 
     def status(self) -> dict[str, Any]:
         return self._invoke({"action": "status"})
+
+    def state(self) -> dict[str, Any]:
+        return self._invoke({"action": "state"})
 
 
 def make_backend() -> Backend:
