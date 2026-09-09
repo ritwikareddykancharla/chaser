@@ -45,59 +45,7 @@ Then in the browser: open an approval card, edit the email, **Approve with edits
 
 ![Architecture](docs/architecture.png)
 
-```mermaid
-flowchart LR
-    subgraph Sources["Data sources (demo: data/*.json)"]
-        BANK[Bank feed]
-        INV[Invoices]
-        MAIL[Client inbox]
-        RCPT[Receipts]
-    end
-
-    subgraph Conn["Connectors and tools (src/chaser/connectors.py, tools.py)"]
-        STORE[(SQLite store)]
-        TOOLS[Strands @tool functions]
-    end
-
-    subgraph Runtime["Amazon Bedrock AgentCore Runtime (main.py)"]
-        direction TB
-        subgraph Graph["Strands Graph: weekly close (agents.py)"]
-            REC[reconciler]
-            BOOK[bookkeeper]
-            COL[collector]
-            REP[reporter]
-            REC -->|always| BOOK
-            REC -->|overdue > 0| COL
-            BOOK --> REP
-            COL --> REP
-        end
-        GATE{{ApprovalGate<br/>InterventionHandler}}
-        AUDIT[AuditHook]
-        SVC[service.py<br/>run_sweep / decide / ask]
-        ASK[ask agent<br/>read-only tools]
-    end
-
-    MODEL[[Bedrock: Claude Sonnet]]
-
-    DEC[(decisions + actions)]
-    UI[Web UI / CLI<br/>approvals queue]
-    OWNER((Owner))
-
-    BANK & INV & MAIL & RCPT --> STORE
-    STORE <--> TOOLS
-    TOOLS <--> REC & BOOK & COL & REP
-    COL -.gated tool.-> GATE
-    GATE -->|Deny + queue| DEC
-    REC & BOOK & COL & REP --> AUDIT --> DEC
-    REP -->|structured output| SVC
-    Graph --- MODEL
-    ASK --- MODEL
-    DEC --> UI
-    UI --> OWNER
-    OWNER -->|approve / edit / skip| SVC
-    SVC -->|agent.tool.send_client_email| TOOLS
-    SVC --> ASK
-```
+*Numbered steps follow one cycle: trigger, routine work done silently, the one moment a human is needed, and how the answer gets back to the agent. Editable source: [docs/architecture.excalidraw](docs/architecture.excalidraw) (open at excalidraw.com); also [SVG](docs/architecture.svg).*
 
 More detail in [docs/architecture.md](docs/architecture.md).
 
@@ -126,7 +74,7 @@ Why this instead of interrupts: the weekly close is a background job. Blocking a
 
 ## Run locally
 
-Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), AWS credentials for an account with Anthropic Claude enabled in the Bedrock console (us-west-2), for example `aws login` or `aws configure` or an SSO profile.
+Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), AWS credentials for an account with Anthropic Claude enabled in the Bedrock console (us-east-1), for example `aws login` or `aws configure` or an SSO profile.
 
 ```bash
 git clone <this repo> && cd chaser
@@ -156,7 +104,7 @@ Web API: `GET /api/state`, `POST /api/sweep`, `POST /api/decisions/{id}` `{"resp
 
 ```bash
 npm i -g @aws/agentcore
-# edit agentcore/aws-targets.json: replace <ACCOUNT_ID> with your account id (region us-west-2)
+# edit agentcore/aws-targets.json: replace <ACCOUNT_ID> with your account id (region us-east-1)
 ./scripts/deploy_agentcore.sh          # cd agentcore && agentcore validate && agentcore deploy -y
 agentcore invoke ChaserAgent '{"action": "status"}'
 agentcore invoke ChaserAgent '{"action": "sweep"}'
@@ -167,7 +115,7 @@ agentcore invoke ChaserAgent '{"action": "sweep"}'
 Point the web UI at the deployed runtime:
 
 ```bash
-AGENT_BACKEND=agentcore AGENT_RUNTIME_ARN=arn:aws:bedrock-agentcore:us-west-2:<ACCOUNT_ID>:runtime/ChaserAgent-xxxx make serve
+AGENT_BACKEND=agentcore AGENT_RUNTIME_ARN=arn:aws:bedrock-agentcore:us-east-1:<ACCOUNT_ID>:runtime/ChaserAgent-xxxx make serve
 ```
 
 ## Project structure
@@ -193,7 +141,7 @@ src/chaser/
   config.py  context.py    demo clock, logging, per-process store/cycle context
   cli.py  seed.py          CLI over the service functions
 data/                      clients, invoices, bank_transactions, receipts, inbox (JSON), chart_of_accounts.yaml
-docs/                      architecture.mmd/.md, submission.md, demo-script.md, decisions.md
+docs/                      architecture.png/.svg/.excalidraw/.md, submission.md, demo-script.md, decisions.md
 agentcore/                 agentcore.json, aws-targets.json
 scripts/                   demo.sh, deploy_agentcore.sh
 tests/                     scripted_model.py + 43 tests
