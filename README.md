@@ -2,7 +2,7 @@
 
 A weekly-close agent for freelancers: reconciles payments, chases overdue invoices, and asks you only before anything reaches a client.
 
-**Live demo:** https://j5mawhesvc.us-east-1.awsapprunner.com (the web UI on AWS App Runner, calling the four-agent Graph on Amazon Bedrock AgentCore Runtime). Press "Run weekly close", wait about two minutes, and approve, edit or skip the proposals. It is a shared demo instance: everyone sees the same books, and its state resets to the demo dataset after 15 idle minutes.
+**Live demo:** https://d344dcrnpg.us-east-1.awsapprunner.com (the web UI on AWS App Runner, calling the four-agent Graph on Amazon Bedrock AgentCore Runtime). Press "Run weekly close", wait about two minutes, and approve, edit or skip the proposals. It is a shared demo instance: everyone sees the same books, and its state resets to the demo dataset after 15 idle minutes.
 
 ## The problem
 
@@ -133,7 +133,7 @@ make deploy-web    # scripts/deploy_web.sh
 
 `infra/web.yaml` is one CloudFormation stack: an ECR repository, a CodeBuild project that clones this repo from GitHub and builds the `Dockerfile` (so no local Docker is needed), and an AWS App Runner service that runs `uvicorn app.server:app` with `AGENT_BACKEND=agentcore`. The App Runner instance role is allowed exactly one action, `bedrock-agentcore:InvokeAgentRuntime` on this runtime; no AWS keys are stored anywhere. The service uses a fixed `AGENTCORE_SESSION_ID`, so every visitor shares one runtime session, and `SWEEP_INTERVAL_SECONDS=0` so only visitors start sweeps. Re-run `make deploy-web` after pushing to rebuild; App Runner auto-deploys the new image.
 
-Live: https://j5mawhesvc.us-east-1.awsapprunner.com (stack `chaser-web`).
+Live: https://d344dcrnpg.us-east-1.awsapprunner.com (stack `chaser-web`).
 
 ## Project structure
 

@@ -134,9 +134,11 @@ Resources:
                 - docker push "$IMAGE_URI"
 
   # ---------------------------------------------------------------- web service
+  # The two roles are created unconditionally in the first stack pass so they have existed for
+  # minutes before the service is added. Creating them in the same update as the service made
+  # App Runner intermittently fail with "Failed to deploy your application image" (IAM propagation).
   EcrAccessRole:
     Type: AWS::IAM::Role
-    Condition: CreateServiceCond
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -150,7 +152,6 @@ Resources:
 
   InstanceRole:
     Type: AWS::IAM::Role
-    Condition: CreateServiceCond
     Properties:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"

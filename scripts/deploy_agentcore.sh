@@ -26,7 +26,7 @@ if [[ "${1:-}" == "--validate" ]]; then
   exit 0
 fi
 
-echo "== agentcore deploy -y"
+echo "==> agentcore deploy -y   (a CDK deployment: CodeZip upload + CloudFormation, usually 3-6 min; CDK prints each resource as it changes)"
 agentcore deploy -y
 
 cat <<'EOF'

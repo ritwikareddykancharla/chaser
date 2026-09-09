@@ -6,7 +6,7 @@
 
 **Track:** Professional Agents
 
-**Try it out:** https://j5mawhesvc.us-east-1.awsapprunner.com (web UI on AWS App Runner; the agents run on Amazon Bedrock AgentCore Runtime `arn:aws:bedrock-agentcore:us-east-1:796330847946:runtime/Chaser_ChaserAgent-20whYPEX0A`)
+**Try it out:** https://d344dcrnpg.us-east-1.awsapprunner.com (web UI on AWS App Runner; the agents run on Amazon Bedrock AgentCore Runtime `arn:aws:bedrock-agentcore:us-east-1:796330847946:runtime/Chaser_ChaserAgent-20whYPEX0A`)
 
 **Code:** https://github.com/ritwikareddykancharla/chaser
 
